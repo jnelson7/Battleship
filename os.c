@@ -231,7 +231,7 @@ void OS_bWait(Sema4Type *semaPt){
 	}
 	semaPt->Value = 0; // for a binary semaphore wait, the value is set to 0
 	OS_EnableInterrupts();
-}	
+}
 
 // ******** OS_bSignal ************ 
 // input:  pointer to a binary semaphore

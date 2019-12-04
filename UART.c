@@ -71,6 +71,7 @@ void WaitForInterrupt(void);  // low power mode
 	
 // Initialize UART0
 // Baud rate is 115200 bits/sec
+
 void UART_Init(void){
   SYSCTL_RCGCUART_R |= 0x01;            // activate UART0
   SYSCTL_RCGCGPIO_R |= 0x01;            // activate port A
@@ -98,6 +99,96 @@ void UART_Init(void){
   NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
   NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
 }
+/*
+void UART1_Init(void){
+  SYSCTL_RCGCUART_R |= 0x02;            // activate UART1
+  SYSCTL_RCGCGPIO_R |= 0x04;            // activate port C
+  Rx_UARTFifo_Init();                        // initialize empty FIFOs
+  Tx_UARTFifo_Init();
+	
+  UART1_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
+  UART1_IBRD_R = 43;                    // IBRD = int(80,000,000 / (16 * 115,200)) = int(43.4028)
+  UART1_FBRD_R = 26;                     // FBRD = int(0.4028 * 64 + 0.5) = 26
+                                        // 8 bit word length (no parity bits, one stop bit, FIFOs)
+  UART1_LCRH_R = (UART_LCRH_WLEN_8|UART_LCRH_FEN);
+  UART1_IFLS_R &= ~0x3F;                // clear TX and RX interrupt FIFO level fields
+                                        // configure interrupt for TX FIFO <= 1/8 full
+                                        // configure interrupt for RX FIFO >= 1/8 full
+  UART1_IFLS_R += (UART_IFLS_TX1_8|UART_IFLS_RX1_8);
+                                        // enable TX and RX FIFO interrupts and RX time-out interrupt
+  UART1_IM_R |= (UART_IM_RXIM|UART_IM_TXIM|UART_IM_RTIM);
+  UART1_CTL_R |= UART_CTL_UARTEN;       // enable UART
+  
+	
+  GPIO_PORTC_AFSEL_R |= 0x30;    // enable alt funct on PC5-4
+  GPIO_PORTC_DEN_R |= 0x30;      // configure PC5-4 as UART1
+  GPIO_PORTC_PCTL_R = (GPIO_PORTC_PCTL_R&0xFF00FFFF)+0x00220000;
+	
+  GPIO_PORTC_AMSEL_R &= ~0x30;   // disable analog on PC5-4
+	
+  NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
+  NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
+}
+*/
+
+void UART1_Init(void){
+  SYSCTL_RCGCUART_R |= 0x02;            // activate UART1
+  SYSCTL_RCGCGPIO_R |= 0x02;            // activate port B
+  Rx_UARTFifo_Init();                        // initialize empty FIFOs
+  Tx_UARTFifo_Init();
+	
+  UART1_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
+  UART1_IBRD_R = 43;                    // IBRD = int(80,000,000 / (16 * 115,200)) = int(43.4028)
+  UART1_FBRD_R = 26;                     // FBRD = int(0.4028 * 64 + 0.5) = 26
+                                        // 8 bit word length (no parity bits, one stop bit, FIFOs)
+  UART1_LCRH_R = (UART_LCRH_WLEN_8|UART_LCRH_FEN);
+  UART1_IFLS_R &= ~0x3F;                // clear TX and RX interrupt FIFO level fields
+                                        // configure interrupt for TX FIFO <= 1/8 full
+                                        // configure interrupt for RX FIFO >= 1/8 full
+  UART1_IFLS_R += (UART_IFLS_TX1_8|UART_IFLS_RX1_8);
+                                        // enable TX and RX FIFO interrupts and RX time-out interrupt
+  UART1_IM_R |= (UART_IM_RXIM|UART_IM_TXIM|UART_IM_RTIM);
+  UART1_CTL_R |= UART_CTL_UARTEN;       // enable UART
+  
+	
+	GPIO_PORTB_AFSEL_R |= 0x30;    // enable alt funct on PC5-4
+  GPIO_PORTB_DEN_R |= 0x30;      // configure PC5-4 as UART1
+  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xFF00FFFF)+0x00220000;
+  GPIO_PORTB_AMSEL_R = 0 ;   // disable analog on PC5-4
+	
+  NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
+  NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
+}
+
+
+// copy from software TX FIFO to hardware TX FIFO
+// stop when software TX FIFO is empty or hardware TX FIFO is full
+void static copySoftwareToHardware(void){
+  char letter;
+	
+  while(((UART1_FR_R&UART_FR_TXFF) == 0)){// && (Tx_UARTFifo_Size() > 0)){
+    Tx_UARTFifo_Get(&letter);
+    UART1_DR_R = letter;
+  }
+	
+}
+
+// output ASCII character to UART
+// spin if TxFifo is full
+int UART_OutChar(char data){
+//	while((UART1_FR_R&0x0020) != 0){
+		// wait until TXFF is 0
+//	}      
+//  UART1_DR_R = data;
+	
+  while(Tx_UARTFifo_Put(data) == FIFOFAIL){};
+  UART1_IM_R &= ~UART_IM_TXIM;          // disable TX FIFO interrupt
+  copySoftwareToHardware();
+  UART1_IM_R |= UART_IM_TXIM;           // enable TX FIFO interrupt
+	return 1; 
+}
+
+
 
 /*
 // UART 1 for cross board communication
@@ -120,14 +211,17 @@ void UART_Init(void){            // should be called only once
 }
 */
 
+/*
 // copy from hardware RX FIFO to software RX FIFO
 // stop when hardware RX FIFO is empty or software RX FIFO is full
 void static copyHardwareToSoftware(void){
   char letter;
-  while(((UART0_FR_R&UART_FR_RXFE) == 0) && (Rx_UARTFifo_Size() < (FIFOSIZE - 1))){
+	
+  while(((UART0_FR_R&UART_FR_RXFE) == 0)){// rest not necessary && (Rx_UARTFifo_Size() < (FIFOSIZE - 1))){
     letter = UART0_DR_R;
-    Rx_UARTFifo_Put(letter);
+    Rx_UARTFifo_Put(letter);// not necessary
   }
+	
 }
 // copy from software TX FIFO to hardware TX FIFO
 // stop when software TX FIFO is empty or hardware TX FIFO is full
@@ -141,12 +235,10 @@ void static copySoftwareToHardware(void){
 // input ASCII character from UART
 // spin if RxFifo is empty
 char UART_InChar(void){
-	/*
-	while((UART1_FR_R&0x0010) != 0){
+//	while((UART1_FR_R&0x0010) != 0){
 		// wait until RXFE is 0
-	}
-  return((char)(UART1_DR_R&0xFF));
-	*/
+//	}
+//  return((char)(UART1_DR_R&0xFF));
 	
   char letter;
   while(Rx_UARTFifo_Get(&letter) == FIFOFAIL){};
@@ -156,12 +248,10 @@ char UART_InChar(void){
 // output ASCII character to UART
 // spin if TxFifo is full
 void UART_OutChar(char data){
-	/*
-	while((UART1_FR_R&0x0020) != 0){
+//	while((UART1_FR_R&0x0020) != 0){
 		// wait until TXFF is 0
-	}      
-  UART1_DR_R = data;
-	*/
+//	}      
+//  UART1_DR_R = data;
 	
   while(Tx_UARTFifo_Put(data) == FIFOFAIL){};
   UART0_IM_R &= ~UART_IM_TXIM;          // disable TX FIFO interrupt
@@ -249,7 +339,7 @@ void UART_OutUDec(uint32_t n){
     UART_OutUDec(n/10);
     n = n%10;
   }
-  UART_OutChar(n+'0'); /* n is between 0 and 9 */
+  UART_OutChar(n+'0'); // n is between 0 and 9 
 }
 
 //---------------------UART_InUHex----------------------------------------
@@ -359,3 +449,4 @@ void OutCRLF(void){
   UART_OutChar(CR);
   UART_OutChar(LF);
 }
+*/

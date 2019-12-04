@@ -42,6 +42,7 @@ uint16_t grid_color = LCD_GREY;
 uint16_t hit_color = LCD_RED;
 uint16_t go_color = LCD_GREEN;
 
+int val = 0;
 
 uint8_t select;  			// joystick push
 uint8_t area[2];
@@ -68,7 +69,7 @@ int16_t y=63;  			// vertical position of the crosshair, initially 63
 int16_t prevx, prevy;	// Previous x and y values of the crosshair
 
 int8_t ship_blocks_pos_x[5]={0,0,0,0,0},ship_blocks_pos_y[5]={0,0,0,0,0};
-int8_t ship_eraser_x[5]={0,0,0,0,0},ship_eraser_y[5]={0,0,0,0,0};
+int8_t ship_eraser_x[5]={10,10,10,10,10},ship_eraser_y[5]={10,10,10,10,10};
 
 char ship_buf[1];
 
@@ -363,7 +364,8 @@ void rand_bomb_cpu(void){
 
 
 void Device_Init(void){
-	UART_Init();
+//	UART_Init();
+	UART1_Init();
 	BSP_LCD_OutputInit();
 	BSP_Joystick_Init();
 }
@@ -670,6 +672,7 @@ void ButtonWork(void){
 	}else if(screen == 7){
 		//UART Commands
 		// send location of bomb ------------------------------------------------------- figure out the specifics
+		
 		I_finish=1; // send this through UART
 		// reset I_finish 
 		I_finish=0;
@@ -688,7 +691,7 @@ void ButtonWork(void){
 // remains untouched, this debounces
 void SW1Push(void){
   if(OS_MsTime() > 20 ){ // debounce
-    if(OS_AddThread(&ButtonWork,128,4)){
+    if(OS_AddThread(&ButtonWork,128,2)){
       NumCreated++; 
     }
     OS_ClearMsTime();  // at least 20ms between touches
@@ -799,7 +802,6 @@ void State(void){
 //	uint16_t CurrentX,CurrentY;
 	uint16_t CharPosX,CharPosY;
   while(1) {
-	
 		CharPosX = area[0]; 
 		CharPosY = area[1]; 
 		
@@ -888,14 +890,14 @@ void State(void){
 			// number will make a ship pop up
 			
 			if(grid_on==0){
-				if(OS_AddThread(&Grid,128,1)){
+				if(OS_AddThread(&Grid,128,2)){
 					NumCreated++; 
 					grid_on=1;
 				}
 			}
 			
 			if(board_on==0){
-				if(OS_AddThread(&Board,128,1)){
+				if(OS_AddThread(&Board,128,2)){
 					NumCreated++; 
 					board_on=1;
 				}
@@ -1033,6 +1035,7 @@ void CrossHair_Init(void){
 
 //******************* Main Function**********
 int main(void){
+	char letter = 'a';
   OS_Init();           // initialize, disable interrupts
 	Device_Init();
   CrossHair_Init();
@@ -1047,14 +1050,21 @@ int main(void){
   OS_AddSW1Task(&SW1Push,2);
 	OS_AddSW2Task(&SW2Push,2);
 	
-  OS_AddPeriodicThread(&Producer,PERIOD,1); // 2 kHz real time sampling of PD3
+	while(1){
+		while(((UART1_FR_R&UART_FR_TXFF) == 0)){// && (Tx_UARTFifo_Size() > 0)){
+			Tx_UARTFifo_Get(&letter);
+			UART1_DR_R = letter;
+		}
+	}
+	
+  OS_AddPeriodicThread(&Producer,PERIOD,2); // 2 kHz real time sampling of PD3
 	
   NumCreated = 0;
 // create initial foreground threads
 //  NumCreated += OS_AddThread(&Interpreter, 128,2); 
-  NumCreated += OS_AddThread(&Consumer, 128,1); 
-	NumCreated += OS_AddThread(&PositionCal, 128,1); 
-	NumCreated += OS_AddThread(&State, 128,1); 
+  NumCreated += OS_AddThread(&Consumer, 128,2); 
+	NumCreated += OS_AddThread(&PositionCal, 128,2); 
+	NumCreated += OS_AddThread(&State, 128,2); 
   
 	// change for Part 5) 
   OS_Launch(TIME_250US); // doesn't return, interrupts enabled in here

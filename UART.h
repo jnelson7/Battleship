@@ -54,7 +54,7 @@ char UART_InChar(void);
 // Output 8-bit to serial port
 // Input: letter is an 8-bit ASCII character to be transferred
 // Output: none
-void UART_OutChar(char data);
+int UART_OutChar(char data);
 
 //------------UART_OutString------------
 // Output String (NULL termination)
