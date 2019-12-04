@@ -98,6 +98,28 @@ void UART_Init(void){
   NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
   NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
 }
+
+/*
+// UART 1 for cross board communication
+// Assumes a 80 MHz bus clock, creates 115200 baud rate
+void UART_Init(void){            // should be called only once
+  SYSCTL_RCGC1_R |= 0x00000002;  // activate UART1
+  SYSCTL_RCGC2_R |= 0x00000004;  // activate port C
+
+  UART1_CTL_R &= ~0x00000001;    // disable UART
+  UART1_IBRD_R = 43;     // IBRD = int(80,000,000/(16*115,200)) = int(43.40278)
+  UART1_FBRD_R = 26;     // FBRD = round(0.40278 * 64) = 26
+
+  UART1_LCRH_R = 0x00000070;  // 8 bit, no parity bits, one stop, FIFOs
+  UART1_CTL_R |= 0x00000001;     // enable UART
+
+  GPIO_PORTC_AFSEL_R |= 0x30;    // enable alt funct on PC5-4
+  GPIO_PORTC_DEN_R |= 0x30;      // configure PC5-4 as UART1
+  GPIO_PORTC_PCTL_R = (GPIO_PORTC_PCTL_R&0xFF00FFFF)+0x00220000;
+  GPIO_PORTC_AMSEL_R &= ~0x30;   // disable analog on PC5-4
+}
+*/
+
 // copy from hardware RX FIFO to software RX FIFO
 // stop when hardware RX FIFO is empty or software RX FIFO is full
 void static copyHardwareToSoftware(void){
@@ -119,17 +141,33 @@ void static copySoftwareToHardware(void){
 // input ASCII character from UART
 // spin if RxFifo is empty
 char UART_InChar(void){
+	/*
+	while((UART1_FR_R&0x0010) != 0){
+		// wait until RXFE is 0
+	}
+  return((char)(UART1_DR_R&0xFF));
+	*/
+	
   char letter;
   while(Rx_UARTFifo_Get(&letter) == FIFOFAIL){};
   return(letter);
+	
 }
 // output ASCII character to UART
 // spin if TxFifo is full
 void UART_OutChar(char data){
+	/*
+	while((UART1_FR_R&0x0020) != 0){
+		// wait until TXFF is 0
+	}      
+  UART1_DR_R = data;
+	*/
+	
   while(Tx_UARTFifo_Put(data) == FIFOFAIL){};
   UART0_IM_R &= ~UART_IM_TXIM;          // disable TX FIFO interrupt
   copySoftwareToHardware();
   UART0_IM_R |= UART_IM_TXIM;           // enable TX FIFO interrupt
+
 }
 // at least one of three things has happened:
 // hardware TX FIFO goes from 3 to 2 or less items
