@@ -44,6 +44,8 @@ uint16_t go_color = LCD_GREEN;
 
 int val = 0;
 
+char letter ='0';
+
 uint8_t select;  			// joystick push
 uint8_t area[2];
 uint8_t screen=1,view=1;
@@ -1035,7 +1037,6 @@ void CrossHair_Init(void){
 
 //******************* Main Function**********
 int main(void){
-	char letter = 'a';
   OS_Init();           // initialize, disable interrupts
 	Device_Init();
   CrossHair_Init();
@@ -1050,11 +1051,19 @@ int main(void){
   OS_AddSW1Task(&SW1Push,2);
 	OS_AddSW2Task(&SW2Push,2);
 	
-	while(1){
-		while(((UART1_FR_R&UART_FR_TXFF) == 0)){// && (Tx_UARTFifo_Size() > 0)){
-			Tx_UARTFifo_Get(&letter);
+	// clean up hardware fifo
+	while(1){ 
+		
+		if(((UART1_FR_R&UART_FR_TXFF) == 0)){// transmit // && (Tx_UARTFifo_Size() > 0)){
+//			Tx_UARTFifo_Get(&letter);
 			UART1_DR_R = letter;
 		}
+		
+		if(((UART1_FR_R&UART_FR_RXFE) == 0)){// rest not necessary && (Rx_UARTFifo_Size() < (FIFOSIZE - 1))){
+			letter = UART1_DR_R;
+//			Rx_UARTFifo_Put(letter);// not necessary
+		}
+		
 	}
 	
   OS_AddPeriodicThread(&Producer,PERIOD,2); // 2 kHz real time sampling of PD3
