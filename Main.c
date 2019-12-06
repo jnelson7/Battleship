@@ -45,6 +45,12 @@ uint16_t go_color = LCD_GREEN;
 int val = 0;
 
 char letter ='0';
+char starter_data;
+char Opp_finish;
+char their_bomb_x;
+char their_bomb_y;
+char I_am_waiting;
+char I_finish=0;
 
 uint8_t select;  			// joystick push
 uint8_t area[2];
@@ -61,8 +67,7 @@ uint8_t i=0,j=0; // for loop indexing
 uint8_t ship_view[SHIPNUM];
 uint8_t ship_orientation = 0;
 
-uint8_t I_finish=0;
-uint8_t Opp_finish=0;
+//uint8_t Opp_finish=0;
 uint8_t my_ship_hit=0;
 uint8_t opp_ship_hit=0;
 
@@ -97,16 +102,16 @@ uint8_t OGG[10][10] = { {0,0,0,0,0,0,0,0,0,0},
 												{0,0,0,0,0,0,0,0,0,0},
 												{0,0,0,0,0,0,0,0,0,0}, }; // opponent game grid
 
-uint8_t HOGG[10][10] = { {0,0,0,0,0,0,0,0,0,0},  
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0},
-												{0,0,0,0,0,0,0,0,0,0}, }; // hidden opponent game grid
+uint8_t HOGG[10][10] = { {20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},  
+												{20,20,20,20,20,20,20,20,20,20},};// hidden opponent game grid
 
 
 uint8_t Top[10][10] = { {0,0,0,0,0,0,0,0,0,0},  
@@ -157,7 +162,36 @@ void grid_lines(void);
 void color_plotter(uint8_t data[10][10]);
 void color_plotter_bottom(uint8_t data[10][10]);
 void refresh_vars(void);
+void send_data(char some_data);
+void player_num(void);
+char receive_data(void);
 
+void player_num(void){
+	if(player==1){
+			BSP_LCD_DrawString(0,0,"P-1", LCD_BLUE);
+	}else if(player==2){
+			BSP_LCD_DrawString(0,0,"P-2", LCD_WHITE);
+	}
+	return;
+}
+
+void send_data(char some_data){
+	// clean up hardware fifo
+	while((UART1_FR_R&UART_FR_TXFF) == 0){// transmit // && (Tx_UARTFifo_Size() > 0)){
+		UART1_DR_R = some_data;
+	}
+	return;
+}
+
+char receive_data(void){
+	// clean up hardware fifo
+	char letter_received = 0x00; //0x73; // 0111 1111
+	// 0xfd 						1111 1101
+	while(((UART1_FR_R&UART_FR_RXFE) == 0)){// rest not necessary && (Rx_UARTFifo_Size() < (FIFOSIZE - 1))){
+		letter_received = UART1_DR_R;
+	}
+	return letter_received;
+}
 // user functions
 void refresh_vars(void){
 	uint8_t index_x, index_y;
@@ -172,18 +206,15 @@ void refresh_vars(void){
 	for(index_x=0;index_x<SHIPNUM;index_x++){
 		ship_display[index_x]=0;
 	}
-	
 	for(index_x=0;index_x<10;index_x++){
 		for(index_y=0;index_y<10;index_y++){
 			PGG[index_x][index_y]=0; // player game grid
 			OGG[index_x][index_y]=0; // opponents game grid
-			HOGG[index_x][index_y]=0; // hidden game grid
+			HOGG[index_x][index_y]=20; // hidden game grid
 		}
 	}
 	return;
 }
-
-
 
 void rndmBtGn(void){
 	// need to make it more random....
@@ -366,8 +397,7 @@ void rand_bomb_cpu(void){
 
 
 void Device_Init(void){
-//	UART_Init();
-	UART1_Init();
+	UART_Init();
 	BSP_LCD_OutputInit();
 	BSP_Joystick_Init();
 }
@@ -462,7 +492,7 @@ void grid_lines(void){
 	return;
 }
 ////////////////////////////////////// periodic thread //////////////////////////////////////
-void Grid(void){
+void Grid_divider(void){
 	while(1){
 		OS_bWait(&LCDFree);
 		
@@ -528,7 +558,7 @@ void grid_plotter_bottom(uint8_t xpos, uint8_t ypos, int16_t blkColor){
 	return;
 }
 ////////////////////////////////////// periodic thread //////////////////////////////////////
-void Board(void){
+void Game_grid(void){
 	while(1){
 		OS_bWait(&LCDFree);
 		
@@ -666,20 +696,38 @@ void ButtonWork(void){
 				rndmBtGn();
 				view = 7;
 			}else{
-				// send information about PGG
-				// get the information about HOGG
+				if(player==1){
+					
+					// receive_HOGG
+					// send_PGG
+					view = 7;
+				}else if(player==2){
+					// send_PGG
+					// receive_HOGG
+					view = 8;
+				}
 			}
 		}
 		
 	}else if(screen == 7){
-		//UART Commands
-		// send location of bomb ------------------------------------------------------- figure out the specifics
 		
-		I_finish=1; // send this through UART
-		// reset I_finish 
-		I_finish=0;
-		bomb_spot();
-		view=8;
+		if(players==1){
+			bomb_spot();
+			view=8;
+		}else{
+			//UART Commands
+			// send location of bomb ------------------------------------------------------- figure out the specifics
+			char they_r_waiting = receive_data();
+			void send_data(char bomb_x);
+			void send_data(char bomb_y);
+			
+			I_finish=1; // send this through UART
+			send_data(I_finish); // turn ended can be a 1
+			
+			// reset I_finish 
+			I_finish=0;
+			
+		}
 	}
 	
 	screen = view; 
@@ -881,32 +929,63 @@ void State(void){
 			view = 1;
 			
 		}else if(screen == 4){ // battle screen
+			view = 5;
+			starter_data = receive_data();
+			// the one to receive data first will be the one to go
+			if(starter_data == '0'){
+				player = 2;
+//				BSP_LCD_DrawString(0,5,"You are Player 2!", LCD_CYAN);
+//				BSP_LCD_DrawString(0,7,"Press Btn 1 to start.", LCD_CYAN);
+				players=1;
+				BSP_LCD_DrawString(0,1,"You would have been", LCD_CYAN);
+				BSP_LCD_DrawString(0,2,"player 2 of 2, but", LCD_CYAN);
+				BSP_LCD_DrawString(0,3,"the game is only for", LCD_CYAN);
+				BSP_LCD_DrawString(0,4,"1 player for now...", LCD_CYAN);
+				
+				BSP_LCD_DrawString(0,6,"Press Btn 1 to", LCD_CYAN);
+				BSP_LCD_DrawString(0,7,"continue in", LCD_CYAN);
+				BSP_LCD_DrawString(0,8,"1 player mode.", LCD_CYAN);
+			}else{
+				send_data('0');
+				player = 1;
+				BSP_LCD_DrawString(0,1,"You would have been", LCD_GREEN);
+				BSP_LCD_DrawString(0,2,"player 1 of 2, but", LCD_GREEN);
+				BSP_LCD_DrawString(0,3,"the game is only for", LCD_GREEN);
+				BSP_LCD_DrawString(0,4,"1 player for now...", LCD_GREEN);
+				
+				BSP_LCD_DrawString(0,6,"Press Btn 1 to", LCD_GREEN);
+				BSP_LCD_DrawString(0,7,"continue in", LCD_GREEN);
+				BSP_LCD_DrawString(0,8,"1 player mode.", LCD_GREEN);
+//				BSP_LCD_DrawString(0,5,"You are Player 1!", LCD_GREEN);
+//				BSP_LCD_DrawString(0,7,"Press Btn 1 to start.", LCD_GREEN);
+				players=1;
+			}
+			
 			
 			// use uart to transmit, and once we recieve we can move fortward. 
 			// We need to determine who goes first here... that will determine who sends and who receives first @ different parts of the game
-			BSP_LCD_DrawString(4,0,"WAITING:", LCD_WHITE);
-			view = 5;
+			
 			
 		}else if(screen == 5){// setting up screen
 			// have numbers that can be clicked on 
 			// number will make a ship pop up
 			
 			if(grid_on==0){
-				if(OS_AddThread(&Grid,128,2)){
+				if(OS_AddThread(&Grid_divider,128,2)){
 					NumCreated++; 
 					grid_on=1;
 				}
 			}
 			
 			if(board_on==0){
-				if(OS_AddThread(&Board,128,2)){
+				if(OS_AddThread(&Game_grid,128,2)){
 					NumCreated++; 
 					board_on=1;
 				}
 			}
 			
 			// top left screen
-//			BSP_LCD_DrawString(0,0,"T-30", LCD_WHITE);
+			player_num();
 							
 			// number display
 			for(i = 0; i<SHIPNUM; i++){
@@ -931,8 +1010,8 @@ void State(void){
 		}else if(screen == 6){// placing ship //////////////////////////////////////////////
 			
 			// top left screen
-//			BSP_LCD_DrawString(0,0,"T-29", LCD_WHITE);
-			
+			player_num();
+							
 			// moving ship blocks
 			for(i = 0; i<SHIPNUM; i++){
 				if(ship_display[i]==1){
@@ -965,6 +1044,10 @@ void State(void){
 //			Bott = OGG;
 			
 		}else if(screen == 7){// attacking screen
+			
+			// top left screen
+			player_num();
+							
 			if(my_ship_hit==16){
 				view = 10;
 				screen = 10;// lose screen
@@ -981,6 +1064,10 @@ void State(void){
 				grid_plotter((x+start_x)/spacing_x,(y+start_y)/spacing_y,go_color); // Cursor
 			}
 		}else if(screen == 8){// waiting for attack
+			
+			// top left screen
+			player_num();
+							
 			if(opp_ship_hit==16){
 				view = 9;
 				screen = 9;// win screen
@@ -1002,7 +1089,15 @@ void State(void){
 					
 					// UART reading of what the opponent is doing, and if he finished. 
 					// Get new PGG from opponent
-					
+					Opp_finish = receive_data();
+					their_bomb_x = receive_data();
+					their_bomb_y = receive_data();
+					send_data(I_am_waiting);
+		
+					I_finish=1; // send this through UART
+					send_data(I_finish); // turn ended can be a 1
+					//
+					//
 					if(Opp_finish==1){
 						view=7;
 					}
@@ -1050,21 +1145,8 @@ int main(void){
 //*******attach background tasks***********
   OS_AddSW1Task(&SW1Push,2);
 	OS_AddSW2Task(&SW2Push,2);
-	
-	// clean up hardware fifo
-	while(1){ 
-		
-		if(((UART1_FR_R&UART_FR_TXFF) == 0)){// transmit // && (Tx_UARTFifo_Size() > 0)){
-//			Tx_UARTFifo_Get(&letter);
-			UART1_DR_R = letter;
-		}
-		
-		if(((UART1_FR_R&UART_FR_RXFE) == 0)){// rest not necessary && (Rx_UARTFifo_Size() < (FIFOSIZE - 1))){
-			letter = UART1_DR_R;
-//			Rx_UARTFifo_Put(letter);// not necessary
-		}
-		
-	}
+
+
 	
   OS_AddPeriodicThread(&Producer,PERIOD,2); // 2 kHz real time sampling of PD3
 	

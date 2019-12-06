@@ -71,7 +71,7 @@ void WaitForInterrupt(void);  // low power mode
 	
 // Initialize UART0
 // Baud rate is 115200 bits/sec
-
+/*
 void UART_Init(void){
   SYSCTL_RCGCUART_R |= 0x01;            // activate UART0
   SYSCTL_RCGCGPIO_R |= 0x01;            // activate port A
@@ -99,7 +99,6 @@ void UART_Init(void){
   NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
   NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
 }
-/*
 void UART1_Init(void){
   SYSCTL_RCGCUART_R |= 0x02;            // activate UART1
   SYSCTL_RCGCGPIO_R |= 0x04;            // activate port C
@@ -131,12 +130,11 @@ void UART1_Init(void){
 }
 */
 
-void UART1_Init(void){
+void UART_Init(void){
   SYSCTL_RCGCUART_R |= 0x02;            // activate UART1
   SYSCTL_RCGCGPIO_R |= 0x02;            // activate port B
   Rx_UARTFifo_Init();                        // initialize empty FIFOs
   Tx_UARTFifo_Init();
-	
   UART1_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
   UART1_IBRD_R = 43;                    // IBRD = int(80,000,000 / (16 * 115,200)) = int(43.4028)
   UART1_FBRD_R = 26;                     // FBRD = int(0.4028 * 64 + 0.5) = 26
@@ -148,19 +146,16 @@ void UART1_Init(void){
   UART1_IFLS_R += (UART_IFLS_TX1_8|UART_IFLS_RX1_8);
                                         // enable TX and RX FIFO interrupts and RX time-out interrupt
   UART1_IM_R |= (UART_IM_RXIM|UART_IM_TXIM|UART_IM_RTIM);
-  UART1_CTL_R |= UART_CTL_UARTEN;       // enable UART
-  
-	
-	GPIO_PORTB_AFSEL_R |= 0x30;    // enable alt funct on PC5-4
-  GPIO_PORTB_DEN_R |= 0x30;      // configure PC5-4 as UART1
-  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xFF00FFFF)+0x00220000;
+  UART1_CTL_R |= UART_CTL_UARTEN;       // enable UART	
+	GPIO_PORTB_AFSEL_R |= 0x03;    // enable alt funct on PC5-4
+  GPIO_PORTB_DEN_R |= 0x03;      // configure PC5-4 as UART1
+  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xFFFFFF00)+0x00000011;
   GPIO_PORTB_AMSEL_R = 0 ;   // disable analog on PC5-4
-	
   NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00008000; // bits 13-15
   NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
 }
 
-
+/*
 // copy from software TX FIFO to hardware TX FIFO
 // stop when software TX FIFO is empty or hardware TX FIFO is full
 void static copySoftwareToHardware(void){
@@ -190,7 +185,7 @@ int UART_OutChar(char data){
 
 
 
-/*
+
 // UART 1 for cross board communication
 // Assumes a 80 MHz bus clock, creates 115200 baud rate
 void UART_Init(void){            // should be called only once
